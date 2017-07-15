@@ -1,7 +1,6 @@
 #pragma once
 //#include "IncludeHeader.h"
 #include "EdgePair.h"
-//#include "MyStruct.h"
 
 //#define OUTDEBUG
 //#define OUTDEBUG2
@@ -46,7 +45,7 @@ public:
 	* @param argg 50% of your destnation from your begin total numebr   0<argg<1; 
 	* @return int 
 	*/
-	int MyOpenMesh::MainLoop(float dest);
+	int MeshSimplification(float dest);
 
 	/*
 	 * Output STL file and 
@@ -59,9 +58,16 @@ public:
 
 	void PointEdgeRelease() { //删除已经无效的collapse点
 		mesh.garbage_collection();
+		INT_MAP_EDGEPAIR::iterator it_edge(m_EdgePair_Map.begin());
+		for (; it_edge != m_EdgePair_Map.end(); it_edge++) {
+			delete it_edge->second;//释放new 创建的内存
+		}
+		INT_MAP_VERTEXP::iterator it_vertex(m_VertexPoint_Map.begin());
+		for (; it_vertex != m_VertexPoint_Map.end(); it_vertex++) {
+			delete it_vertex->second;
+		}
 	}
 private :
-	bool m_mesh_init = false;
 	/*
 	 * open option for normal useage
 	 */

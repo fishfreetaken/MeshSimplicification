@@ -1,17 +1,22 @@
 #pragma once
+
+#define SOLUTIONACCURANCY  0.0000000001  //小数点后十位,用来判断是否解出来方程；
 //专门用来定义struct结构
 struct MESHSETEDGE {
 	int i;
 	double a;
 	bool operator < (const struct MESHSETEDGE &m)const {
 		if (a == m.a) {
-			return i < m.i;
+			return i < m.i; //肯定是按照从小到大的顺序排列的，如有需要，相反
 		}
 		else {
 			return a < m.a;
 		}
 	}
 };
+typedef set<MESHSETEDGE>     STRUCT_SET_EDGEPAIR;
+
+typedef map<int, int>   INT_INT_MAP;
 //
 //struct agw {
 //	int a;

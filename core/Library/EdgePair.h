@@ -1,8 +1,6 @@
 #pragma once
 #include "IncludeHeader.h"
-#include "MyStruct.h"
-
-#define SOLUTIONACCURANCY  0.0000000001  //小数点后十位,用来判断是否解出来方程；
+//#include "MyStruct.h"
 
 class VertexPoint {
 public:
@@ -109,4 +107,3 @@ private:
 
 typedef map<int, EdgePair*>		INT_MAP_EDGEPAIR; //value - edge->idx : value - EdgePair* 
 
-typedef set<MESHSETEDGE>     STRUCT_SET_EDGEPAIR;

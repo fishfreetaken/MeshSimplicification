@@ -13,15 +13,15 @@ TriMeshSimplify::~TriMeshSimplify()
 }
 
 void TriMeshSimplify::UpdateTriQ() {
+	Matrix4d m_Face_Q;
 	m_Face_Q << 0, 0, 0, 0,
 				0, 0, 0, 0,
 				0, 0, 0, 0,
 				0, 0, 0, 0;
 
-	m_Face_Arround.clear();
+	//m_Face_Arround.clear();
 
 	set<int> atface;
-	
 	//m_Collapse_Half = mesh.halfedge_handle(mesh.fh_begin(m_Mesh_Face)->idx()); //先给一个，以后不用的话再删除，用来调试； ？？？
 
 	for (MyMesh::FaceVertexIter fv_iter = mesh.fv_begin(m_Mesh_Face); fv_iter.is_valid(); ++fv_iter)
@@ -31,34 +31,26 @@ void TriMeshSimplify::UpdateTriQ() {
 		{
 			atface.insert(vf_iter->idx());
 		}
-
 	}
 	
 	MyMesh::Point arv[3];
 	set<int>::iterator sit(atface.begin());
 	for (; sit != atface.end(); sit++) {
-		m_Face_Arround[*sit] = 1; //record
+		//m_Face_Arround[*sit] = 1; //record
 		int i = 0;
 		for (MyMesh::FaceVertexIter fv_iter = mesh.fv_begin(mesh.face_handle(*sit)); fv_iter.is_valid(); ++fv_iter)
 		{
-			if (i >= 3) {
-				cout << "Up three!" << endl;
+			/*if (i >= 3) {
+				cout << "Up three:"<<i<<" "<<fv_iter->idx() << endl;
 				break;
-			}
+			}*/
 			arv[i] = mesh.point(*fv_iter);
 			i++;
 		}
-		ComputeSurfaceQ(arv);
+		m_Face_Q += ComputeSurfaceQ(arv);
 	}
 
-	m_Q_Equation = m_Face_Q;
-	m_Q_Equation(3, 0) = 0;
-	m_Q_Equation(3, 1) = 0;
-	m_Q_Equation(3, 2) = 0;
-	m_Q_Equation(3, 3) = 1;
-
-	ComputeMaxPoint();
-	m_QX_Set.a = m_x;
+	m_QX_Set.a = ComputeMaxPoint(m_Face_Q);
 	m_QX_Set.i = m_Mesh_Face.idx();
 }
 
@@ -71,11 +63,6 @@ bool TriMeshSimplify::UpdateHalfEdge(MyMesh::HalfedgeHandle cc) {
 
 		MyMesh::HalfedgeHandle ah_b = mesh.prev_halfedge_handle(mesh.opposite_halfedge_handle(mesh.prev_halfedge_handle(ah)));
 
-		//if (m_Mesh_Face.idx() == 654954) { //309486
-		//	cout << "break: " << ah.idx()<<" "<<ah_a.idx()<<" "<<ah_b.idx()<<" "<<mesh.opposite_halfedge_handle(ah_b).idx() << endl;
-		//	cout << "face: " << mesh.face_handle(ah).idx() << " " << mesh.face_handle(ah_a).idx() << " " << mesh.face_handle(ah_b).idx() << " " << mesh.face_handle(mesh.opposite_halfedge_handle(ah_b)).idx() << endl;
-		//}
-		
 		if (ah_a.idx() == mesh.opposite_halfedge_handle(ah_b).idx()) {
 			//m_Collapse_Half = ah;
 			//break;
@@ -102,8 +89,9 @@ bool TriMeshSimplify::is_Three_Tri(MyMesh::FaceHandle cc,MyMesh::HalfedgeHandle 
 	return false;
 }
 
-void TriMeshSimplify::ComputeSurfaceQ(MyMesh::Point *vp) //三个面的顶点坐标计算Q值
+Matrix4d TriMeshSimplify::ComputeSurfaceQ(MyMesh::Point *vp) //三个面的顶点坐标计算Q值
 {
+	Matrix4d m_Face_Q;
 	Vector3d a((*vp)[0], (*vp)[1], (*vp)[2]);
 	Vector3d b((*(vp + 1))[0], (*(vp + 1))[1], (*(vp + 1))[2]);
 	Vector3d c((*(vp + 2))[0], (*(vp + 2))[1], (*(vp + 2))[2]);
@@ -115,11 +103,20 @@ void TriMeshSimplify::ComputeSurfaceQ(MyMesh::Point *vp) //三个面的顶点坐标计算Q
 
 	Vector4d coe(ab[0], ab[1], ab[2], df); //surface equation cofficient!
 
-	m_Face_Q += coe*coe.transpose(); //update Q
+	m_Face_Q = coe*coe.transpose(); //update Q
+	return m_Face_Q;
 }
 
-void TriMeshSimplify::ComputeMaxPoint()//(MyMesh::VertexHandle tmpa, MyMesh::VertexHandle tmpb)
+double TriMeshSimplify::ComputeMaxPoint(Matrix4d& m_Face_Q)//(MyMesh::VertexHandle tmpa, MyMesh::VertexHandle tmpb)
 {
+	Matrix4d m_Q_Equation;
+	m_Q_Equation = m_Face_Q;
+	m_Q_Equation(3, 0) = 0;
+	m_Q_Equation(3, 1) = 0;
+	m_Q_Equation(3, 2) = 0;
+	m_Q_Equation(3, 3) = 1;
+	double m_x;
+
 	Vector4d ori(0, 0, 0, 1);
 	//Vector4d m_v=m_Q_Equation.fullPivHouseholderQr().solve(ori); //改成局部变量；
 	Vector4d m_v = m_Q_Equation.colPivHouseholderQr().solve(ori); //使用col会不会提速一点（这两个没啥区别，速度都差不多！）
@@ -128,7 +125,7 @@ void TriMeshSimplify::ComputeMaxPoint()//(MyMesh::VertexHandle tmpa, MyMesh::Ver
 	if ((!temp) || (temp < SOLUTIONACCURANCY)) { //解出来方程的情况下
 		m_v_mesh = MyMesh::Point(m_v[0], m_v[1], m_v[2]); //无论如何访问这个最优点
 		m_x = m_v.transpose()*m_Face_Q*m_v;
-		return;
+		return m_x;
 	}
 
 	//对于没有解出来方程的情况下，需要进行七个点的测试取其中的误差最小值
@@ -159,12 +156,16 @@ void TriMeshSimplify::ComputeMaxPoint()//(MyMesh::VertexHandle tmpa, MyMesh::Ver
 	STRUCT_SET_EDGEPAIR::iterator it(iter.begin());
 	m_x = it->a;
 	m_v_mesh = MyMesh::Point(ptemp[it->i][0], ptemp[it->i][1], ptemp[it->i][2]);
+	return m_x;
 }
 
-int TriMeshSimplify::TriCollapse()
+int TriMeshSimplify::TriCollapse(vector<int>&a, vector<int>&b)
 {
 	//UpdateHalfEdge();//每次都需要进行检查更新一下，看看是否出现错误的点；
-	
+	if (m_Mesh_Face.idx() == 36461) {
+		cout << "find it" << endl;
+	}
+
 	if (!is_Three_Tri(m_Mesh_Face, m_Collapse_Half)) {
 		for (MyMesh::FaceHalfedgeIter fh_iter = mesh.fh_begin(m_Mesh_Face); fh_iter.is_valid(); fh_iter++) {
 			m_Collapse_Half = mesh.halfedge_handle(fh_iter->idx());
@@ -176,60 +177,33 @@ int TriMeshSimplify::TriCollapse()
 	if (!DebugInfo2()) {
 		return m_Mesh_Face.idx();
 	}
+	if (m_Collapse_Half.idx()==-1) {
+		cout << "error -1" << endl;
+	}
+	a.push_back(mesh.face_handle(m_Collapse_Half).idx());
+	a.push_back(mesh.face_handle(mesh.opposite_halfedge_handle(m_Collapse_Half)).idx());
 
 	MyMesh::HalfedgeHandle halfn = mesh.opposite_halfedge_handle(mesh.next_halfedge_handle(m_Collapse_Half));
 
+	
 
 	MyMesh::VertexHandle vp = mesh.to_vertex_handle(m_Collapse_Half);
-	//MyMesh::VertexHandle vpf = mesh.from_vertex_handle(mesh.prev_halfedge_handle(halfh));
-
-	//MyMesh::HalfedgeHandle halfn = mesh.prev_halfedge_handle(halfh);//在第一次collapse时候已经被删除了！
-
-	//if (m_Mesh_Face.idx() == 259514) {
-	//	//m_TriMesh_Map[it->i]->TriCollapse3();
-	//	DebugInfo();
-	//}
-	
 
 	mesh.collapse(m_Collapse_Half);
 
-	//if (m_Mesh_Face.idx() == 259514) {
-	//	//m_TriMesh_Map[it->i]->TriCollapse3();
-	//	DebugInfo();
-	//}
+	a.push_back(mesh.face_handle(halfn).idx());
+	a.push_back(mesh.face_handle(mesh.opposite_halfedge_handle(halfn)).idx());
 
 	mesh.collapse(halfn);
 	
 	mesh.set_point(vp, m_v_mesh);
 
 	for (MyMesh::VertexFaceIter vf_iter = mesh.vf_begin(vp); vf_iter.is_valid(); ++vf_iter) {
-		m_Face_Arround[vf_iter->idx()]++;
+		//m_Face_Arround[vf_iter->idx()]++;
+		b.push_back(vf_iter->idx());
 	}
 	return -1;
 }
-
-int TriMeshSimplify::TriCollapse3()
-{
-	//UpdateHalfEdge();
-	MyMesh::VertexHandle vp = mesh.to_vertex_handle(m_Collapse_Half);
-
-	MyMesh::HalfedgeHandle halfn = mesh.opposite_halfedge_handle(mesh.next_halfedge_handle(m_Collapse_Half));
-	//MyMesh::HalfedgeHandle halfn = mesh.prev_halfedge_handle(halfh);//在第一次collapse时候已经被删除了！
-	DebugInfo();
-	mesh.collapse(m_Collapse_Half);
-
-	DebugInfo();
-	mesh.collapse(halfn);
-
-	DebugInfo();
-	mesh.set_point(vp, m_v_mesh);
-
-	for (MyMesh::VertexFaceIter vf_iter = mesh.vf_begin(vp); vf_iter.is_valid(); ++vf_iter) {
-		m_Face_Arround[vf_iter->idx()]++;
-	}
-	return 0;
-}
-
 
 int TriMeshSimplify::is_TriMesh(MyMesh::VertexHandle vh) { //用来判断一个点周围是否仅仅有三个三角形；
 	int i = 1;
@@ -304,6 +278,7 @@ MyTriOpenMesh::~MyTriOpenMesh()
 int MyTriOpenMesh::Readfile(const char * argg)
 {
 	// read mesh from stdin
+	cout << "正在读取网格文件..." << endl;
 	if (!OpenMesh::IO::read_mesh(mesh, argg, opt))
 	{
 		std::cerr << "Error: Cannot read mesh from " << std::endl;
@@ -361,9 +336,6 @@ void MyTriOpenMesh::FillTriMeshMap()
 
 		m_TriMesh_Set.insert(m_TriMesh_Map[i]->ReturnTriSet());
 
-		/*if (i == 65480) {
-			m_TriMesh_Map[i]->DebugInfo();
-		}*/
 	}
 }
 
@@ -371,15 +343,10 @@ int MyTriOpenMesh::CollapseIterator()
 {
 	STRUCT_SET_EDGEPAIR::iterator it(m_TriMesh_Set.begin());
 	//cout << it->i<<":"<< endl;
-	//if (it->i == 259523) {
-	//	//m_TriMesh_Map[259523]->DebugInfo2();
-	//}
-	/*if (it->i == 258266) {
-		m_TriMesh_Map[it->i]->DebugInfo();
-	}
-*/
+
 	//309493
-	int judge = m_TriMesh_Map[it->i]->TriCollapse();
+	vector<int> delet, reserve;
+	int judge = m_TriMesh_Map[it->i]->TriCollapse(delet,reserve);
 	if (judge != -1) {
 		//m_TriMesh_Set.erase(m_TriMesh_Map[it->i]->ReturnTriSet());//应该有两个方案，不删除，或者删除它；
 		//cout << "-1 collapse : " << it->i << " " << judge << endl;
@@ -387,65 +354,50 @@ int MyTriOpenMesh::CollapseIterator()
 			m_TriMesh_Set.erase(m_TriMesh_Map[it->i]->ReturnTriSet());
 			return 0;
 		}
-		return CollapseIterator(judge);
+
+		delet.clear();
+		reserve.clear();
+		judge = m_TriMesh_Map[judge]->TriCollapse(delet, reserve);
+		if (judge != -1) {
+			//m_TriMesh_Set.erase(m_TriMesh_Map[imf]->ReturnTriSet());//应该有两个方案，不删除，或者删除它；
+			m_TriMesh_Set.erase(m_TriMesh_Map[it->i]->ReturnTriSet());
+			cout << "-2 collapse : " << judge << " saw:" << it->i << endl;
+			return 0;
+		}
+		//return CollapseIterator(judge,it->i);
 	}
 
-	INT_INT_MAP Face_Arround = m_TriMesh_Map[it->i]->ReturnTriMap();
-
-	map<int, int>::iterator itm(Face_Arround.begin());
-	int fm = 0;
-	for (; itm != Face_Arround.end(); itm++) {
-		m_TriMesh_Set.erase(m_TriMesh_Map[itm->first]->ReturnTriSet());
-		//cout << "iftri:" << itm->first << " " << itm->second << ":" << m_TriMesh_Map[itm->first]->is_TriMesh() << endl;
-		//if (itm->first == 65459) {
-		//	cout << "1:0map " << it->i << " : " << itm->first<<" "<< itm->second << ":" << m_TriMesh_Map[itm->first]->is_TriMesh() << endl;
-		//	m_TriMesh_Map[itm->first]->DebugInfo(); //65480
-		//}
-		if (itm->second > 1) {
-			m_TriMesh_Map[itm->first]->UpdateTriQ();
-			m_TriMesh_Set.insert(m_TriMesh_Map[itm->first]->ReturnTriSet());
-
-			if (!m_TriMesh_Map[itm->first]->is_TriMesh()) {
-				cout << "2:0 map: " << it->i <<" : "<< itm->first << endl; //250635   258266
-				m_TriMesh_Map[itm->first]->DebugInfo();
-			}
-		}
-		else {
-			fm++;
-		}
+	for (auto i : delet) {
+		m_TriMesh_Set.erase(m_TriMesh_Map[i]->ReturnTriSet());
 	}
-	return fm;
+	for (auto i : reserve) {
+		m_TriMesh_Set.erase(m_TriMesh_Map[i]->ReturnTriSet());
+		m_TriMesh_Map[i]->UpdateTriQ();
+		m_TriMesh_Set.insert(m_TriMesh_Map[i]->ReturnTriSet());
+	}
+
+	return delet.size();
 }
 
-int MyTriOpenMesh::CollapseIterator(int imf) {
-
-	
-	int judge = m_TriMesh_Map[imf]->TriCollapse();
-	if (judge != -1) {
-		m_TriMesh_Set.erase(m_TriMesh_Map[imf]->ReturnTriSet());//应该有两个方案，不删除，或者删除它；
-		cout << "-2 collapse : " << imf << endl;
-		return 0;
+void MyTriOpenMesh::InterFacePort(string inputfilename, string outputfilename, float dest) {
+	if ((dest < 0)||(dest>=1)) {
+		cout << "简化量输入不合法！" << endl;
+		return;
 	}
+	//cout << "简化输出文件 ：" << outputfilename << endl;
+	cout << "目标简化量：" << dest << endl;
+	//string outputfilename = "DIT2-4-simplify-60.ply";
+	Readfile(inputfilename.c_str());
+	cout << "读取文件完毕，开始网格简化..." << endl;
+	MeshSimplification(dest);
+	cout << "简化完毕，正在生成目标简化网格文件..." << endl;
+	Writefile(outputfilename.c_str());
+}
 
-	INT_INT_MAP Face_Arround = m_TriMesh_Map[imf]->ReturnTriMap();
-
-	map<int, int>::iterator itm(Face_Arround.begin());
-	int fm = 0;
-	for (; itm != Face_Arround.end(); itm++) {
-		m_TriMesh_Set.erase(m_TriMesh_Map[itm->first]->ReturnTriSet());
-
-		if (itm->second > 1) {
-			m_TriMesh_Map[itm->first]->UpdateTriQ();
-			m_TriMesh_Set.insert(m_TriMesh_Map[itm->first]->ReturnTriSet());
-
-			if (!m_TriMesh_Map[itm->first]->is_TriMesh()) {
-				cout << "iter2 2:0 map: " << imf << " : " << itm->first << endl; //250635   258266
-				m_TriMesh_Map[itm->first]->DebugInfo();
-			}
-		}
-		else {
-			fm++;
-		}
+void MyTriOpenMesh::InterFacePort() { 
+	if ((m_dest < 0) || (m_dest >= 1)) {
+		cout << "简化量输入不合法！" << endl;
+		return;
 	}
-	return fm;
+	MeshSimplification(m_dest);
 }

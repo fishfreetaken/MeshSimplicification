@@ -159,8 +159,8 @@ void EdgePair::UpdateQEquation(Matrix4d f)
 void EdgePair::ComputeMaxPoint()//(MyMesh::VertexHandle tmpa, MyMesh::VertexHandle tmpb)
 {
 	Vector4d ori(0,0,0,1);
-	Vector4d m_v=m_Q_Equation.fullPivHouseholderQr().solve(ori); //改成局部变量；
-
+	//Vector4d m_v=m_Q_Equation.fullPivHouseholderQr().solve(ori); //改成局部变量；
+	Vector4d m_v = m_Q_Equation.colPivHouseholderQr().solve(ori); //使用col会不会提速一点（这两个没啥区别，速度都差不多！）
 	//check;
 	double temp = (m_Q_Equation*m_v - ori).norm();
 	if ((!temp) || (temp < SOLUTIONACCURANCY)) {
@@ -198,12 +198,12 @@ void EdgePair::ComputeMaxPoint()//(MyMesh::VertexHandle tmpa, MyMesh::VertexHand
 
 int EdgePair::PairCollapse() 
 {
-	//cout << "wgewg" << endl;
 	cmesh.collapse(m_halfedge_h);
-	//cout << "after" << endl;
-	if(cmesh.is_collapse_ok(m_halfedge_h)) {
-		return 1;//collapse error!
-	}
+
+	//if(cmesh.is_collapse_ok(m_halfedge_h)) { //是不是可以不用判断
+	//	return 1;//collapse error!
+	//}
+
 	cmesh.set_point(m_a, m_v_mesh);
 	return 0;  //对的情况只有一个，错的情况有很多1，2，3，4.。。。
 }

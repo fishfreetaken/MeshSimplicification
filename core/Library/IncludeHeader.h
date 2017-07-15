@@ -17,3 +17,7 @@ typedef OpenMesh::TriMesh_ArrayKernelT<>  TriMyMesh;
 #include <set>
 #include <vector>
 #include <map>
+#include <windows.h>
+#include <time.h>
+
+#include "MyStruct.h"
