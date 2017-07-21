@@ -10,7 +10,9 @@ public:
 
 	void UpdateTriQ();
 
-	int TriCollapse(vector<int>&a,vector<int>&b);
+	int TriCollapse(vector<int>&a,vector<int>&b, map<int, TriMeshSimplify*>&c);
+	int TriCollapse2(vector<int>&a, vector<int>&b);
+	int TriCollapse3(vector<int>&a, vector<int>&b);
 
 	bool is_TriMesh();//判断该三角形是否有三个点
 	int is_TriMesh(MyMesh::VertexHandle vh);
@@ -26,6 +28,60 @@ public:
 	MESHSETEDGE ReturnTriSet() { return m_QX_Set; }
 	//INT_INT_MAP ReturnTriMap() { return m_Face_Arround;}
 
+	void SetHalfEdge() {
+		m_Collapse_Half = mesh.halfedge_handle(mesh.fh_begin(m_Mesh_Face)->idx());
+	}
+
+	int ReturnObtuse() { return m_Obtuse; }
+
+	bool ReturnObtuseHalf(MyMesh::HalfedgeHandle &hf) {
+		if (m_Obtuse == -1) {
+			return 0;
+		}
+		MyMesh::VertexHandle v = mesh.vertex_handle(m_Obtuse);
+		MyMesh::HalfedgeHandle cc;
+		for (MyMesh::FaceHalfedgeIter fh_iter = mesh.fh_begin(m_Mesh_Face); fh_iter.is_valid(); fh_iter++) {
+			cc = mesh.halfedge_handle(fh_iter->idx());
+			if (mesh.from_vertex_handle(cc)==v) {
+				return 1;
+			}
+		}
+		return 0;
+	}
+	int JudgeShortEdge(MyMesh::HalfedgeHandle &hf, map<int, TriMeshSimplify*>&cc) {
+		if (m_Obtuse == -1) {
+			return 0;
+		}
+		MyMesh::HalfedgeHandle ohf = mesh.opposite_halfedge_handle(hf);
+		MyMesh::VertexHandle vv = mesh.vertex_handle(m_Obtuse);
+		if ((mesh.from_vertex_handle(ohf)==vv) || (mesh.to_vertex_handle(ohf)==vv)) {
+			return 1;
+		}
+
+		MyMesh::HalfedgeHandle nahf = mesh.opposite_halfedge_handle(mesh.next_halfedge_handle(ohf));
+		if (cc[mesh.face_handle(nahf).idx()]->EdgeObtuse(nahf)) {
+			hf = mesh.next_halfedge_handle(ohf);
+			return - 1;
+		}
+
+		MyMesh::HalfedgeHandle nbhf = mesh.opposite_halfedge_handle(mesh.prev_halfedge_handle(ohf));
+		if (cc[mesh.face_handle(nbhf).idx()]->EdgeObtuse(nbhf)) {
+			hf = mesh.prev_halfedge_handle(ohf);
+		}
+
+		return 2;
+	}
+	bool EdgeObtuse(MyMesh::HalfedgeHandle &a) {
+		if (m_Obtuse == -1) {
+			return 0;
+		}
+		MyMesh::VertexHandle vv = mesh.vertex_handle(m_Obtuse);
+		if ((mesh.from_vertex_handle(a) == vv) || (mesh.to_vertex_handle(a) == vv)) {
+			return 1;
+		}
+		return 0;
+	}
+
 private:
 	MyMesh &mesh;
 
@@ -40,6 +96,10 @@ private:
 	//double m_x;//误差
 
 	MESHSETEDGE m_QX_Set;
+
+	int m_Obtuse = -1;//判断三角形是不是钝角，如果是该值保存钝角顶点位置索引
+	
+	void is_Obtuse_Tri();
 
 	//INT_INT_MAP m_Face_Arround;//用来记录周围的三角形，用来比较变形前后缺少的三角形
 
@@ -79,7 +139,7 @@ public:
 	*/
 	void Release() {
 		cout << "Release RAM" << endl;
-		mesh.garbage_collection();
+		//mesh.garbage_collection();
 		INT_MAP_TRIMESH::iterator it_edge(m_TriMesh_Map.begin());
 		for (; it_edge != m_TriMesh_Map.end(); it_edge++) {
 			delete it_edge->second;//释放new 创建的内存
@@ -106,6 +166,9 @@ public:
 			mesh=ims.mesh;
 	*/
 
+	void IterartoAll();
+	void IterartoAll2();
+
 private:
 	float m_dest=0;
 
@@ -125,4 +188,19 @@ private:
 	*/
 	int CollapseIterator();
 	//int CollapseIterator(int imf,int saw,vector<int>&a,vector<int> &b);
+
+	float ObtuseTri(MyMesh::Point a, MyMesh::Point b, MyMesh::Point c) {
+		Vector3f af(a[0], a[1], a[2]);
+		Vector3f bf(b[0], b[1], b[2]);
+		Vector3f cf(c[0], c[1], c[2]);
+		
+		if ((bf - af).norm() == 0) {
+			cout << "sup" << endl;
+		}
+		if ((cf - af).norm() == 0) {
+			cout << "sup2" << endl;
+		}
+
+		return  (bf - af).dot(cf - af);
+	}
 };

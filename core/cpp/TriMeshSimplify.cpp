@@ -20,7 +20,7 @@ void TriMeshSimplify::UpdateTriQ() {
 				0, 0, 0, 0;
 
 	//m_Face_Arround.clear();
-
+	//is_Obtuse_Tri();//ÅÐ¶ÏÊÇ·ñÎª¶Û½ÇÈý½ÇÐÎ
 	set<int> atface;
 	//m_Collapse_Half = mesh.halfedge_handle(mesh.fh_begin(m_Mesh_Face)->idx()); //ÏÈ¸øÒ»¸ö£¬ÒÔºó²»ÓÃµÄ»°ÔÙÉ¾³ý£¬ÓÃÀ´µ÷ÊÔ£» £¿£¿£¿
 
@@ -52,6 +52,48 @@ void TriMeshSimplify::UpdateTriQ() {
 
 	m_QX_Set.a = ComputeMaxPoint(m_Face_Q);
 	m_QX_Set.i = m_Mesh_Face.idx();
+}
+
+void TriMeshSimplify::is_Obtuse_Tri() {
+	MyMesh::Point cc[3];
+	MyMesh::Point vec[2];
+	MyMesh::VertexHandle vh[3];
+	float t = 0;
+	int i = 0;
+	for (MyMesh::FaceVertexIter fv_iter = mesh.fv_begin(m_Mesh_Face); fv_iter.is_valid();fv_iter++) {
+		vh[i] = mesh.vertex_handle(fv_iter->idx());
+		cc[i] = mesh.point(vh[i]);
+		i++;
+	}
+	vec[0] = cc[1] - cc[0]; vec[1] = cc[2] - cc[0];
+	for (i = 0; i < 3; i++) {
+		t += vec[0][i] * vec[1][i];
+	}
+	if (t < 0) {
+		m_Obtuse = vh[0].idx();
+		return;
+	}
+
+	t = 0;
+	vec[0] = cc[0] - cc[1]; vec[1] = cc[2] - cc[1];
+	for (i = 0; i < 3; i++) {
+		t += vec[0][i] * vec[1][i];
+	}
+	if (t < 0) {
+		m_Obtuse = vh[1].idx();
+		return;
+	}
+
+	t = 0;
+	vec[0] = cc[0] - cc[2]; vec[1] = cc[1] - cc[2];
+	for (i = 0; i < 3; i++) {
+		t += vec[0][i] * vec[1][i];
+	}
+	if (t < 0) {
+		m_Obtuse = vh[2].idx();
+		return;
+	}
+	m_Obtuse = -1;
 }
 
 bool TriMeshSimplify::UpdateHalfEdge(MyMesh::HalfedgeHandle cc) {
@@ -134,10 +176,10 @@ double TriMeshSimplify::ComputeMaxPoint(Matrix4d& m_Face_Q)//(MyMesh::VertexHand
 	int i = 0;
 	for (MyMesh::FaceVertexIter fv_iter = mesh.fv_begin(m_Mesh_Face); fv_iter.is_valid(); ++fv_iter)
 	{
-		if (i == 3) {
+		/*if (i == 3) {
 			cout << "3 break;" << endl;
 			break;
-		}
+		}*/
 		MyMesh::Point p= mesh.point(*fv_iter);
 		ptemp.push_back(Vector4d(p[0], p[1], p[2], 1));
 		i++;
@@ -159,35 +201,185 @@ double TriMeshSimplify::ComputeMaxPoint(Matrix4d& m_Face_Q)//(MyMesh::VertexHand
 	return m_x;
 }
 
-int TriMeshSimplify::TriCollapse(vector<int>&a, vector<int>&b)
+int TriMeshSimplify::TriCollapse(vector<int>&a, vector<int>&b, INT_MAP_TRIMESH&cs)
 {
 	//UpdateHalfEdge();//Ã¿´Î¶¼ÐèÒª½øÐÐ¼ì²é¸üÐÂÒ»ÏÂ£¬¿´¿´ÊÇ·ñ³öÏÖ´íÎóµÄµã£»
-	if (m_Mesh_Face.idx() == 36461) {
-		cout << "find it" << endl;
-	}
 
-	if (!is_Three_Tri(m_Mesh_Face, m_Collapse_Half)) {
-		for (MyMesh::FaceHalfedgeIter fh_iter = mesh.fh_begin(m_Mesh_Face); fh_iter.is_valid(); fh_iter++) {
-			m_Collapse_Half = mesh.halfedge_handle(fh_iter->idx());
-			if (UpdateHalfEdge(mesh.opposite_halfedge_handle(m_Collapse_Half))) {//ÏàÁÚÁ½¸ö¶¼²»Ó¦¸ÃÊÇÌØÊâ½á¹¹£»
-				return mesh.face_handle(mesh.opposite_halfedge_handle(m_Collapse_Half)).idx();
-			}
-		}
-	}
 	if (!DebugInfo2()) {
+		DebugInfo(); //1304380
 		return m_Mesh_Face.idx();
 	}
-	if (m_Collapse_Half.idx()==-1) {
-		cout << "error -1" << endl;
+	
+	MyMesh::VertexHandle vp;
+
+	if (is_Three_Tri(m_Mesh_Face, m_Collapse_Half)) {
+		a.push_back(mesh.face_handle(m_Collapse_Half).idx());
+		a.push_back(mesh.face_handle(mesh.opposite_halfedge_handle(m_Collapse_Half)).idx());
+
+		vp = mesh.to_vertex_handle(m_Collapse_Half);
+
+		mesh.collapse(m_Collapse_Half);
+
+		for (MyMesh::VertexFaceIter vf_iter = mesh.vf_begin(vp); vf_iter.is_valid(); ++vf_iter) {
+			b.push_back(vf_iter->idx());
+		}
+		return -1;
 	}
+
+	MyMesh::HalfedgeHandle halfc[3];
+	MyMesh::HalfedgeHandle halfn;//ÁíÒ»¸öÐèÒªcollapseµÄµØ·½
+	MyMesh::HalfedgeHandle ohf;
+	MyMesh::HalfedgeHandle ccf;
+
+	vector<MyMesh::HalfedgeHandle> vmh;
+
+	halfc[0] = mesh.halfedge_handle(mesh.fh_begin(m_Mesh_Face)->idx());
+	halfc[1] = mesh.next_halfedge_handle(halfc[0]);
+	halfc[2] = mesh.prev_halfedge_handle(halfc[0]);
+
+	int gg;
+	for (int i = 0; i < 3; i++) {
+		ohf = mesh.opposite_halfedge_handle(halfc[i]);
+		ccf = halfc[i];
+		gg=cs[mesh.face_handle(ohf).idx()]->JudgeShortEdge(ccf,cs);
+		if (gg < 0) {
+			vmh.push_back(ccf);
+		}
+	}
+	if (!vmh.size()) {
+		m_Collapse_Half = halfc[0];
+		halfn = mesh.opposite_halfedge_handle(halfc[1]);
+
+		a.push_back(mesh.face_handle(m_Collapse_Half).idx());
+		a.push_back(mesh.face_handle(mesh.opposite_halfedge_handle(m_Collapse_Half)).idx());
+
+		vp = mesh.to_vertex_handle(m_Collapse_Half);
+
+		mesh.collapse(m_Collapse_Half);
+
+		a.push_back(mesh.face_handle(halfn).idx());
+		a.push_back(mesh.face_handle(mesh.opposite_halfedge_handle(halfn)).idx());
+
+		mesh.collapse(halfn);
+
+		mesh.set_point(vp, m_v_mesh);
+
+		for (MyMesh::VertexFaceIter vf_iter = mesh.vf_begin(vp); vf_iter.is_valid(); ++vf_iter) {
+			b.push_back(vf_iter->idx());
+		}
+		return -1;
+	}
+	else if (vmh.size() == 1) {
+		m_Collapse_Half = vmh[0];
+		//halfn = mesh.opposite_halfedge_handle(mesh.next_halfedge_handle(m_Collapse_Half));
+		a.push_back(mesh.face_handle(m_Collapse_Half).idx());
+		a.push_back(mesh.face_handle(mesh.opposite_halfedge_handle(m_Collapse_Half)).idx());
+
+		vp = mesh.to_vertex_handle(m_Collapse_Half);
+
+		mesh.collapse(m_Collapse_Half);
+		for (MyMesh::VertexFaceIter vf_iter = mesh.vf_begin(vp); vf_iter.is_valid(); ++vf_iter) {
+			b.push_back(vf_iter->idx());
+		}
+		return -1;
+
+	}
+	else {
+		m_Collapse_Half = vmh[0];
+		halfn = vmh[1];
+
+		a.push_back(mesh.face_handle(m_Collapse_Half).idx());
+		a.push_back(mesh.face_handle(mesh.opposite_halfedge_handle(m_Collapse_Half)).idx());
+
+		vp = mesh.to_vertex_handle(m_Collapse_Half);
+		MyMesh::VertexHandle vp2 = mesh.to_vertex_handle(halfn);
+
+		mesh.collapse(m_Collapse_Half);
+
+		a.push_back(mesh.face_handle(halfn).idx());
+		a.push_back(mesh.face_handle(mesh.opposite_halfedge_handle(halfn)).idx());
+
+		mesh.collapse(halfn);
+
+		for (MyMesh::VertexFaceIter vf_iter = mesh.vf_begin(vp); vf_iter.is_valid(); ++vf_iter) {
+			b.push_back(vf_iter->idx());
+		}
+		for (MyMesh::VertexFaceIter vf_iter = mesh.vf_begin(vp2); vf_iter.is_valid(); ++vf_iter) {
+			b.push_back(vf_iter->idx());
+		}
+		return -1;
+	}
+}
+
+int TriMeshSimplify::TriCollapse2(vector<int>&a, vector<int>&b)
+{
+	if (!DebugInfo2()) {
+		DebugInfo();
+		return m_Mesh_Face.idx();
+	}
+	
+	MyMesh::HalfedgeHandle halfn;
+	MyMesh::VertexHandle vp;
+
+	//bool ifs=is_Three_Tri(m_Mesh_Face, m_Collapse_Half); //²»¹ÜÊÇ²»ÊÇ£¬¶¼ÒªÑéÖ¤¶ÔÃæµÄÊÇ·ñÊÇÌØÊâ½á¹¹
+
+	if (is_Three_Tri(m_Mesh_Face, m_Collapse_Half)) {
+
+		//halfn = mesh.opposite_halfedge_handle(mesh.next_halfedge_handle(m_Collapse_Half));
+		//MyMesh::HalfedgeHandle ohf = mesh.opposite_halfedge_handle(mesh.next_halfedge_handle(m_Collapse_Half));
+		//if (is_Three_Tri(mesh.face_handle(ohf), halfn)) {
+			a.push_back(mesh.face_handle(m_Collapse_Half).idx());
+			a.push_back(mesh.face_handle(mesh.opposite_halfedge_handle(m_Collapse_Half)).idx());
+
+		vp = mesh.to_vertex_handle(m_Collapse_Half);
+		// MyMesh::VertexHandle vp2= mesh.to_vertex_handle(halfn);
+
+			mesh.collapse(m_Collapse_Half);
+
+		//	a.push_back(mesh.face_handle(halfn).idx());
+		//	a.push_back(mesh.face_handle(mesh.opposite_halfedge_handle(halfn)).idx());
+
+		//	mesh.collapse(halfn);
+
+		//	//mesh.set_point(vp, m_v_mesh);
+
+			for (MyMesh::VertexFaceIter vf_iter = mesh.vf_begin(vp); vf_iter.is_valid(); ++vf_iter) {
+				b.push_back(vf_iter->idx());
+			}
+		//	for (MyMesh::VertexFaceIter vf_iter = mesh.vf_begin(vp2); vf_iter.is_valid(); ++vf_iter) {
+		//		b.push_back(vf_iter->idx());
+		//	}
+			return -1;
+		//}
+	}
+	else {
+		MyMesh::HalfedgeHandle ohf;
+		for (MyMesh::FaceHalfedgeIter fh_iter = mesh.fh_begin(m_Mesh_Face); fh_iter.is_valid(); fh_iter++) {
+			m_Collapse_Half = mesh.halfedge_handle(fh_iter->idx());
+			ohf = mesh.opposite_halfedge_handle(m_Collapse_Half);
+			//if (UpdateHalfEdge(ohf)) {
+			if(is_Three_Tri(mesh.face_handle(ohf), halfn)){
+				//return mesh.face_handle(ohf).idx();
+				a.push_back(mesh.face_handle(halfn).idx());
+				a.push_back(mesh.face_handle(mesh.opposite_halfedge_handle(halfn)).idx());
+				vp = mesh.to_vertex_handle(halfn);
+
+				mesh.collapse(halfn);
+
+				for (MyMesh::VertexFaceIter vf_iter = mesh.vf_begin(vp); vf_iter.is_valid(); ++vf_iter) {
+					b.push_back(vf_iter->idx());
+				}
+				return -1;
+			}
+		}
+
+		halfn = mesh.opposite_halfedge_handle(mesh.next_halfedge_handle(m_Collapse_Half));
+	}
+
 	a.push_back(mesh.face_handle(m_Collapse_Half).idx());
 	a.push_back(mesh.face_handle(mesh.opposite_halfedge_handle(m_Collapse_Half)).idx());
 
-	MyMesh::HalfedgeHandle halfn = mesh.opposite_halfedge_handle(mesh.next_halfedge_handle(m_Collapse_Half));
-
-	
-
-	MyMesh::VertexHandle vp = mesh.to_vertex_handle(m_Collapse_Half);
+	vp = mesh.to_vertex_handle(m_Collapse_Half);
 
 	mesh.collapse(m_Collapse_Half);
 
@@ -195,11 +387,96 @@ int TriMeshSimplify::TriCollapse(vector<int>&a, vector<int>&b)
 	a.push_back(mesh.face_handle(mesh.opposite_halfedge_handle(halfn)).idx());
 
 	mesh.collapse(halfn);
-	
+
 	mesh.set_point(vp, m_v_mesh);
 
+
 	for (MyMesh::VertexFaceIter vf_iter = mesh.vf_begin(vp); vf_iter.is_valid(); ++vf_iter) {
-		//m_Face_Arround[vf_iter->idx()]++;
+		b.push_back(vf_iter->idx());
+	}
+	return -1;
+}
+
+int TriMeshSimplify::TriCollapse3(vector<int>&a, vector<int>&b)
+{
+	/*if (!DebugInfo2()) {
+		DebugInfo();
+		return m_Mesh_Face.idx();
+	}*/
+
+	MyMesh::HalfedgeHandle halfn;
+	MyMesh::VertexHandle vp;
+
+	if (is_Three_Tri(m_Mesh_Face, m_Collapse_Half)) {
+		a.push_back(mesh.face_handle(m_Collapse_Half).idx());
+		a.push_back(mesh.face_handle(mesh.opposite_halfedge_handle(m_Collapse_Half)).idx());
+
+		vp = mesh.to_vertex_handle(m_Collapse_Half);
+
+		mesh.collapse(m_Collapse_Half);
+
+		for (MyMesh::VertexFaceIter vf_iter = mesh.vf_begin(vp); vf_iter.is_valid(); ++vf_iter) {
+			b.push_back(vf_iter->idx());
+		}
+		return -1;
+	}
+	else {
+		MyMesh::HalfedgeHandle ohf;
+		for (MyMesh::FaceHalfedgeIter fh_iter = mesh.fh_begin(m_Mesh_Face); fh_iter.is_valid(); fh_iter++) {
+			m_Collapse_Half = mesh.halfedge_handle(fh_iter->idx());
+			ohf = mesh.opposite_halfedge_handle(m_Collapse_Half);
+			MyMesh::FaceHandle  mfh = mesh.face_handle(ohf);
+			if (is_Three_Tri(mfh, halfn)) {
+				a.push_back(mesh.face_handle(halfn).idx());
+				a.push_back(mesh.face_handle(mesh.opposite_halfedge_handle(halfn)).idx());
+				vp = mesh.to_vertex_handle(halfn);
+
+				mesh.collapse(halfn);
+
+				for (MyMesh::VertexFaceIter vf_iter = mesh.vf_begin(vp); vf_iter.is_valid(); ++vf_iter) {
+					b.push_back(vf_iter->idx());
+				}
+				return -1;
+			}
+			else {
+				MyMesh::FaceHandle lfh;
+				for (MyMesh::FaceFaceIter ff_iter = mesh.ff_begin(mfh); ff_iter.is_valid();ff_iter++) {
+					lfh = mesh.face_handle(ff_iter->idx());
+					if (is_Three_Tri(lfh, halfn)) {
+						a.push_back(mesh.face_handle(halfn).idx());
+						a.push_back(mesh.face_handle(mesh.opposite_halfedge_handle(halfn)).idx());
+						vp = mesh.to_vertex_handle(halfn);
+
+						mesh.collapse(halfn);
+
+						for (MyMesh::VertexFaceIter vf_iter = mesh.vf_begin(vp); vf_iter.is_valid(); ++vf_iter) {
+							b.push_back(vf_iter->idx());
+						}
+						return -1;
+					}
+				}
+			}
+		}
+
+		halfn = mesh.opposite_halfedge_handle(mesh.next_halfedge_handle(m_Collapse_Half));
+	}
+
+	a.push_back(mesh.face_handle(m_Collapse_Half).idx());
+	a.push_back(mesh.face_handle(mesh.opposite_halfedge_handle(m_Collapse_Half)).idx());
+
+	vp = mesh.to_vertex_handle(m_Collapse_Half);
+
+	mesh.collapse(m_Collapse_Half);
+
+	a.push_back(mesh.face_handle(halfn).idx());
+	a.push_back(mesh.face_handle(mesh.opposite_halfedge_handle(halfn)).idx());
+
+	mesh.collapse(halfn);
+
+	mesh.set_point(vp, m_v_mesh);
+
+
+	for (MyMesh::VertexFaceIter vf_iter = mesh.vf_begin(vp); vf_iter.is_valid(); ++vf_iter) {
 		b.push_back(vf_iter->idx());
 	}
 	return -1;
@@ -214,7 +491,7 @@ int TriMeshSimplify::is_TriMesh(MyMesh::VertexHandle vh) { //ÓÃÀ´ÅÐ¶ÏÒ»¸öµãÖÜÎ§Ê
 		return 1;
 	}
 	if (i < 3) {
-		return 2;
+		return i;
 	}
 	return 0;
 }
@@ -234,9 +511,10 @@ bool TriMeshSimplify::is_TriMesh() {
 void TriMeshSimplify::DebugInfo()
 {
 	cout << "Debug mesh Tri "<< m_Mesh_Face.idx()<<" :" << endl;
+
 	cout<< "This collapse edge: " << m_Collapse_Half.idx() << "-"<<mesh.opposite_halfedge_handle(m_Collapse_Half)<<" "<<mesh.next_halfedge_handle(m_Collapse_Half)<<"-"<<mesh.opposite_halfedge_handle(mesh.next_halfedge_handle(m_Collapse_Half))<<" "<<mesh.next_halfedge_handle(mesh.next_halfedge_handle(m_Collapse_Half))<<"-"<<mesh.opposite_halfedge_handle(mesh.next_halfedge_handle(mesh.next_halfedge_handle(m_Collapse_Half))) << endl;
 	for (MyMesh::FaceVertexIter fv_iter = mesh.fv_begin(m_Mesh_Face); fv_iter.is_valid(); fv_iter++) {
-		cout << "Face Vertex: " << fv_iter->idx() << endl;
+		cout << "Face Vertex: " << fv_iter->idx()<<" "<<mesh.point(mesh.vertex_handle(fv_iter->idx())) << endl;
 		for (MyMesh::VertexFaceIter vf_iter = mesh.vf_begin(mesh.vertex_handle(fv_iter->idx())); vf_iter.is_valid(); vf_iter++) {
 			cout << "Face " << vf_iter->idx() << " halfedge: ";
 			for (MyMesh::FaceHalfedgeCWIter fh_iter = mesh.fh_cwbegin(mesh.face_handle(vf_iter->idx())); fh_iter.is_valid(); fh_iter++) {
@@ -255,16 +533,19 @@ bool TriMeshSimplify::DebugInfo2() {
 		for (MyMesh::VertexFaceIter vf_iter = mesh.vf_begin(mesh.vertex_handle(fv_iter->idx())); vf_iter.is_valid(); vf_iter++) {
 			i++;
 		}
-		if (i == 3) {
+		/*if (i == 3) {
 			cc++;
 		}
 		else if (i<3) {
 			return false;
+		}*/
+		if (i < 3) {
+			return false;
 		}
 	}
-	if (cc > 1) {
+	/*if (cc>1) {
 		return false;
-	}
+	}*/
 	return true;
 }
 
@@ -314,13 +595,21 @@ int MyTriOpenMesh::MeshSimplification(float dest)
 		return 1;
 	}
 	int idest = mesh.n_faces()*dest;//ÓÐ¸ö×ª»»
+
 	FillTriMeshMap();
 	printf("¶¥µãÊýÄ¿Í³¼Æ : ¼ò»¯Ç°:%d  Ä¿±ê:%d  ²îÖµ:%d\n", mesh.n_faces(), mesh.n_faces() - idest, idest);
 
 	while (idest>0) {
 		idest -=CollapseIterator();
 	}
+
+	//IterartoAll();
+
+	mesh.garbage_collection();
+
 	Release();
+
+	//IterartoAll2();
 }
 
 void MyTriOpenMesh::FillTriMeshMap()
@@ -336,36 +625,60 @@ void MyTriOpenMesh::FillTriMeshMap()
 
 		m_TriMesh_Set.insert(m_TriMesh_Map[i]->ReturnTriSet());
 
+		m_TriMesh_Map[i]->SetHalfEdge();
+
+		/*if (i==512373) {
+			m_TriMesh_Map[i]->DebugInfo();
+		}
+		if (i == 506721) {
+			m_TriMesh_Map[i]->DebugInfo();
+		}*/
 	}
 }
 
 int MyTriOpenMesh::CollapseIterator()
 {
 	STRUCT_SET_EDGEPAIR::iterator it(m_TriMesh_Set.begin());
-	//cout << it->i<<":"<< endl;
 
+	//if (it->i == 209713) {
+	//	m_TriMesh_Map[it->i]->DebugInfo();
+	//	m_TriMesh_Map[209547]->DebugInfo();
+	//	//m_TriMesh_Map[1772774]->DebugInfo();
+	//}
+	//if (it->i == 214536) {
+	//	m_TriMesh_Map[it->i]->DebugInfo();
+	//	m_TriMesh_Map[209713]->DebugInfo();
+	//}
+	//if (it->i == 204827) {
+	//	m_TriMesh_Map[it->i]->DebugInfo();
+	//	m_TriMesh_Map[209713]->DebugInfo();
+	//}
 	//309493
+	int lin = it->i;
+
 	vector<int> delet, reserve;
-	int judge = m_TriMesh_Map[it->i]->TriCollapse(delet,reserve);
+	//int judge = m_TriMesh_Map[lin]->TriCollapse(delet,reserve, m_TriMesh_Map);
+	int judge = m_TriMesh_Map[lin]->TriCollapse3(delet, reserve);
 	if (judge != -1) {
 		//m_TriMesh_Set.erase(m_TriMesh_Map[it->i]->ReturnTriSet());//Ó¦¸ÃÓÐÁ½¸ö·½°¸£¬²»É¾³ý£¬»òÕßÉ¾³ýËü£»
 		//cout << "-1 collapse : " << it->i << " " << judge << endl;
-		if (it->i == judge) {
-			m_TriMesh_Set.erase(m_TriMesh_Map[it->i]->ReturnTriSet());
+		if (lin == judge) {
+			m_TriMesh_Set.erase(m_TriMesh_Map[lin]->ReturnTriSet());
 			return 0;
 		}
-
-		delet.clear();
-		reserve.clear();
-		judge = m_TriMesh_Map[judge]->TriCollapse(delet, reserve);
-		if (judge != -1) {
-			//m_TriMesh_Set.erase(m_TriMesh_Map[imf]->ReturnTriSet());//Ó¦¸ÃÓÐÁ½¸ö·½°¸£¬²»É¾³ý£¬»òÕßÉ¾³ýËü£»
-			m_TriMesh_Set.erase(m_TriMesh_Map[it->i]->ReturnTriSet());
-			cout << "-2 collapse : " << judge << " saw:" << it->i << endl;
-			return 0;
-		}
-		//return CollapseIterator(judge,it->i);
+		//delet.clear();
+		//reserve.clear();
+		
+		//judge = m_TriMesh_Map[judge]->TriCollapse(delet, reserve);
+		//if (judge != -1) {
+		//	//m_TriMesh_Map[judge]->DebugInfo();
+		//	//m_TriMesh_Map[it->i]->DebugInfo();
+		//	//m_TriMesh_Set.erase(m_TriMesh_Map[it->i]->ReturnTriSet());//Ó¦¸ÃÓÐÁ½¸ö·½°¸£¬²»É¾³ý£¬»òÕßÉ¾³ýËü£»
+		//	cout << "-2 collapse : " << judge << " saw:" << it->i << endl;
+		//	return 0;
+		//}
 	}
+
 
 	for (auto i : delet) {
 		m_TriMesh_Set.erase(m_TriMesh_Map[i]->ReturnTriSet());
@@ -374,6 +687,18 @@ int MyTriOpenMesh::CollapseIterator()
 		m_TriMesh_Set.erase(m_TriMesh_Map[i]->ReturnTriSet());
 		m_TriMesh_Map[i]->UpdateTriQ();
 		m_TriMesh_Set.insert(m_TriMesh_Map[i]->ReturnTriSet());
+		/*if (i == 209547) {
+			cout << "find : " << lin << endl;
+			m_TriMesh_Map[i]->DebugInfo();
+		}
+		if (i == 209713) {
+			cout << "find2 : " << lin << endl;
+			m_TriMesh_Map[i]->DebugInfo();
+		}*/
+		/*if (i == 1772774) {
+			cout << "find2 : " << lin << endl;
+			m_TriMesh_Map[i]->DebugInfo();
+		}*/
 	}
 
 	return delet.size();
@@ -400,4 +725,60 @@ void MyTriOpenMesh::InterFacePort() {
 		return;
 	}
 	MeshSimplification(m_dest);
+}
+
+void MyTriOpenMesh::IterartoAll() {
+	int i = 0;
+	int cc[3] = {0,0,0};
+	for (MyMesh::VertexIter v_iter = mesh.vertices_begin(); v_iter != mesh.vertices_end(); v_iter++) {
+		i = 0;
+		for (MyMesh::VertexFaceIter vf_iter = mesh.vf_begin(*v_iter); vf_iter.is_valid(); vf_iter++) {
+			i++;
+		}
+		if (i ==1) {
+			cout << v_iter->idx() <<" "<<i<< endl;
+			cout << mesh.point(mesh.vertex_handle(v_iter->idx())) << endl;
+			cc[0]++;
+		}
+		if (i == 2) {
+			cout << v_iter->idx() << " " << i << endl;
+			cout << mesh.point(mesh.vertex_handle(v_iter->idx())) << endl;
+			cout << "face : ";
+			for (MyMesh::VertexFaceIter vf_iter = mesh.vf_begin(*v_iter); vf_iter.is_valid(); vf_iter++) {
+				cout << vf_iter->idx()<< " : " << endl;;
+				for (MyMesh::FaceVertexIter fv_iter = mesh.fv_begin(*vf_iter); fv_iter.is_valid(); fv_iter++) {
+					cout <<"vertex "<<fv_iter->idx()<<" : "<< mesh.point(mesh.vertex_handle(fv_iter->idx())) << endl;
+					for (MyMesh::VertexFaceIter vf_iter2 = mesh.vf_begin(*fv_iter); vf_iter2.is_valid(); vf_iter2++) {
+						cout << vf_iter2->idx()<<" ";
+					}
+					cout << endl;
+				}
+			}
+			MyMesh::HalfedgeHandle hf = mesh.halfedge_handle(mesh.voh_begin(mesh.vertex_handle(v_iter->idx()))->idx());
+			mesh.collapse(hf);
+			cc[1]++;
+		}
+	}
+	cout << endl;
+
+	cout << "cc : " << cc[0]<<" "<<cc[1] << endl;
+}
+
+void MyTriOpenMesh::IterartoAll2() {
+	int i = 0;
+	for (MyMesh::VertexIter v_iter = mesh.vertices_begin(); v_iter != mesh.vertices_end(); v_iter++) {
+		i = 0;
+		for (MyMesh::VertexFaceIter vf_iter = mesh.vf_begin(*v_iter); vf_iter.is_valid(); vf_iter++) {
+			i++;
+		}
+		if (i == 1) {
+			cout << v_iter->idx() << " " << i << endl;
+			cout << mesh.point(mesh.vertex_handle(v_iter->idx())) << endl;
+		}
+		if (i == 2) {
+			cout << v_iter->idx() << " " << i << endl;
+			cout << mesh.point(mesh.vertex_handle(v_iter->idx())) << endl;
+		}
+	}
+	cout << endl;
 }

@@ -11,6 +11,7 @@
 
 void main_test();
 void main_test2();
+void main_test3();
 
 void go_test(string inputfilename,float dest) {
 	MyOpenMesh  ims;
@@ -45,9 +46,14 @@ void go_test2(string inputfilename, float dest) {
 }
 int main(int argc, char** argv)
 {
+	/*MyMesh mesh2;
+	OpenMesh::IO::Options opt;
+	OpenMesh::IO::read_mesh(mesh2, "fps2.stl", opt);
+	cout << mesh2.n_faces() << endl;*/
+
 	//main_test(); //测试
 	//main_test2();
-
+	//main_test3();
 
 	//MyOpenMesh  ims;
 	//
@@ -62,15 +68,15 @@ int main(int argc, char** argv)
 	//MyTriOpenMesh  ims;
 	//
 	//float dest = 0.8; //缩小原来点的多少 dest*100%
-	//string inputfilename = "DIT3-3.ply";
-	//string outputfilename = "DIT3-3-Tri-simplify-80.ply";
+	//string inputfilename = "Total-denoised-Tri-simplify-80.ply";
+	//string outputfilename = "Total-denoised-Tri-simplify-802.ply";
 	///*string inputfilename = "DIT-2.stl";
 	//string outputfilename = "DIT-2-Tri-simplify-80.stl";*/
 	//if (ims.Readfile(inputfilename.c_str())) {
 	//	return 0;
 	//}
 	//ims.MeshSimplification(dest);
-	//ims.Writefile(outputfilename.c_str(),1);
+	//ims.Writefile(outputfilename.c_str(),0);
 	//system("pause");
 
 	if (argc<4) {
@@ -102,11 +108,53 @@ int main(int argc, char** argv)
 	return 0;
 }
 
+void main_test3() {
+	MyMesh mesh;
+	// Request required status flags
+	// Add some vertices as in the illustration above
+	MyMesh::VertexHandle vhandle[10];
+	vhandle[0] = mesh.add_vertex(MyMesh::Point(0, 0, 0));
+
+	vhandle[1] = mesh.add_vertex(MyMesh::Point(4, 0, 0));
+	vhandle[2] = mesh.add_vertex(MyMesh::Point(2, 2, 0));
+
+	vhandle[3] = mesh.add_vertex(MyMesh::Point(2, 4, 0));
+
+	vector<MyMesh::VertexHandle> face_vhandles;
+	MyMesh::FaceHandle   fhandle[10];
+
+	face_vhandles.push_back(vhandle[0]);
+	face_vhandles.push_back(vhandle[2]);
+	face_vhandles.push_back(vhandle[1]);
+	fhandle[0] = mesh.add_face(face_vhandles);
+
+	face_vhandles.clear();
+	face_vhandles.push_back(vhandle[2]);
+	face_vhandles.push_back(vhandle[0]);
+	face_vhandles.push_back(vhandle[3]);
+	fhandle[1] = mesh.add_face(face_vhandles);
+
+	face_vhandles.clear();
+	face_vhandles.push_back(vhandle[2]);
+	face_vhandles.push_back(vhandle[3]);
+	face_vhandles.push_back(vhandle[1]);
+	fhandle[1] = mesh.add_face(face_vhandles);
+
+	printf("face num:%d\n", mesh.n_faces());
+	printf("vertex num:%d\n", mesh.n_vertices());
+	
+	for (MyMesh::VertexOHalfedgeIter it = mesh.voh_begin(vhandle[0]); it.is_valid(); it++) {
+		MyMesh::HalfedgeHandle hf = mesh.halfedge_handle(it->idx());
+		if (mesh.to_vertex_handle(hf) == vhandle[3]) {
+			mesh.collapse(hf);
+		}
+	}
+	OpenMesh::IO::write_mesh(mesh, "ppst2.obj");
+}
+
 void main_test2() {
 	MyMesh mesh;
 	// Request required status flags
-	MyMesh::VertexHandle lo(-1);
-	cout << lo.idx() << endl;
 	// Add some vertices as in the illustration above
 	MyMesh::VertexHandle vhandle[10];
 	vhandle[0] = mesh.add_vertex(MyMesh::Point(6, 0, 0));
@@ -370,7 +418,7 @@ void main_test2() {
 }
 
 void main_test() {
-	Matrix3d test;
+	/*Matrix3d test;
 	test << 1, 1.1, 2,
 		0, 1, 1,
 		0, 0, 1;
@@ -384,282 +432,107 @@ void main_test() {
 	cout << "Full QR:" << ff << " : " << (test*ff - x).norm() << endl;
 
 	ff = test.llt().solve(x);
-	cout << "LLT:" << ff << " : " << (test*ff - x).norm() << endl;
+	cout << "LLT:" << ff << " : " << (test*ff - x).norm() << endl;*/
 
-	/*map<int, float> vsf;
-	vsf[52] = 52.36;
-	vsf[4] = 7.256;
-	vsf[75] = 52;
-	vsf[14] = 4;
-
-	map<int, float >::iterator it;
-	vsf.erase(52);
-	vsf.erase(51);
-	for (it = vsf.begin(); it != vsf.end(); it++) {
-	cout << it->first << " " << it->second << endl;
-	}*/
-
-	//MyMesh mesh;
-	TriMyMesh mesh;
-	// Request required status flags
+	MyMesh mesh;
+	//TriMyMesh mesh;
 
 	// Add some vertices as in the illustration above
 	MyMesh::VertexHandle vhandle[10];
-	vhandle[0] = mesh.add_vertex(MyMesh::Point(1, 1, 0));
-	vhandle[1] = mesh.add_vertex(MyMesh::Point(3, 1, 0));
-	vhandle[2] = mesh.add_vertex(MyMesh::Point(5, 1, 0));
-	vhandle[3] = mesh.add_vertex(MyMesh::Point(6, 2, 0));
-	vhandle[4] = mesh.add_vertex(MyMesh::Point(4, 2, 0));
-	vhandle[5] = mesh.add_vertex(MyMesh::Point(2, 2, 0));
-	vhandle[6] = mesh.add_vertex(MyMesh::Point(0, 2, 0));
-	vhandle[7] = mesh.add_vertex(MyMesh::Point(1, 4, 0));
-	vhandle[8] = mesh.add_vertex(MyMesh::Point(3, 4, 0));
-	vhandle[9] = mesh.add_vertex(MyMesh::Point(5, 4, 0));
+	vhandle[0] = mesh.add_vertex(MyMesh::Point(0, 1, 0));
+	vhandle[1] = mesh.add_vertex(MyMesh::Point(1, 0, 0));
+	vhandle[2] = mesh.add_vertex(MyMesh::Point(7, 0, 0));
+	vhandle[3] = mesh.add_vertex(MyMesh::Point(3, 5, 0));
+	vhandle[4] = mesh.add_vertex(MyMesh::Point(2, 4, 0));
+	vhandle[5] = mesh.add_vertex(MyMesh::Point(5, 1, 0));
+	vhandle[6] = mesh.add_vertex(MyMesh::Point(5, -2, 0));
+	vhandle[7] = mesh.add_vertex(MyMesh::Point(9, 3, 0));
+	vhandle[8] = mesh.add_vertex(MyMesh::Point(8, -3, 0));
+	//vhandle[9] = mesh.add_vertex(MyMesh::Point(5, 4, 0));
 
 	// Add three quad faces
 	std::vector<MyMesh::VertexHandle> face_vhandles;
 
 	MyMesh::FaceHandle   fhandle[10];
 
+	face_vhandles.push_back(vhandle[1]);  //0 5 1
+	face_vhandles.push_back(vhandle[0]);
 	face_vhandles.push_back(vhandle[5]);
-	face_vhandles.push_back(vhandle[1]);
-	face_vhandles.push_back(vhandle[4]);
 	fhandle[0] = mesh.add_face(face_vhandles);
 
 	face_vhandles.clear();
-	face_vhandles.push_back(vhandle[5]);
-	face_vhandles.push_back(vhandle[0]);
+	face_vhandles.push_back(vhandle[0]);  //0 4 5
 	face_vhandles.push_back(vhandle[1]);
+	face_vhandles.push_back(vhandle[7]);
 	fhandle[1] = mesh.add_face(face_vhandles);
 
 	face_vhandles.clear();
-	face_vhandles.push_back(vhandle[5]);//
-	face_vhandles.push_back(vhandle[6]);
-	face_vhandles.push_back(vhandle[0]);
+	face_vhandles.push_back(vhandle[4]);//
+	face_vhandles.push_back(vhandle[3]);
+	face_vhandles.push_back(vhandle[5]);
 	fhandle[2] = mesh.add_face(face_vhandles);
 
 	face_vhandles.clear();
+	face_vhandles.push_back(vhandle[3]);
+	face_vhandles.push_back(vhandle[2]);
 	face_vhandles.push_back(vhandle[5]);
-	face_vhandles.push_back(vhandle[7]);
-	face_vhandles.push_back(vhandle[6]);
 	fhandle[3] = mesh.add_face(face_vhandles);
 
 	face_vhandles.clear();
 	face_vhandles.push_back(vhandle[5]);
-	face_vhandles.push_back(vhandle[8]);
-	face_vhandles.push_back(vhandle[7]);
+	face_vhandles.push_back(vhandle[2]);
+	face_vhandles.push_back(vhandle[1]);
 	fhandle[4] = mesh.add_face(face_vhandles);
 
 	face_vhandles.clear();
-	face_vhandles.push_back(vhandle[5]);
-	face_vhandles.push_back(vhandle[4]);
-	face_vhandles.push_back(vhandle[8]);
+	face_vhandles.push_back(vhandle[2]);
+	face_vhandles.push_back(vhandle[6]);
+	face_vhandles.push_back(vhandle[1]);
 	fhandle[5] = mesh.add_face(face_vhandles);
 
 	face_vhandles.clear();//
-	face_vhandles.push_back(vhandle[4]);
-	face_vhandles.push_back(vhandle[9]);
+	face_vhandles.push_back(vhandle[2]);
 	face_vhandles.push_back(vhandle[8]);
+	face_vhandles.push_back(vhandle[6]);
 	fhandle[6] = mesh.add_face(face_vhandles);
 
 	face_vhandles.clear();
-	face_vhandles.push_back(vhandle[4]);
-	face_vhandles.push_back(vhandle[3]);
-	face_vhandles.push_back(vhandle[9]);
+	face_vhandles.push_back(vhandle[2]);
+	face_vhandles.push_back(vhandle[7]);
+	face_vhandles.push_back(vhandle[8]);
 	fhandle[7] = mesh.add_face(face_vhandles);
 
 	face_vhandles.clear();
-	face_vhandles.push_back(vhandle[4]);
 	face_vhandles.push_back(vhandle[2]);
 	face_vhandles.push_back(vhandle[3]);
+	face_vhandles.push_back(vhandle[7]);
 	fhandle[8] = mesh.add_face(face_vhandles);
 
-	face_vhandles.clear();//
-	face_vhandles.push_back(vhandle[4]);
-	face_vhandles.push_back(vhandle[1]);
-	face_vhandles.push_back(vhandle[2]);
-	fhandle[9] = mesh.add_face(face_vhandles);
+	//face_vhandles.clear();//
+	//face_vhandles.push_back(vhandle[4]);
+	//face_vhandles.push_back(vhandle[1]);
+	//face_vhandles.push_back(vhandle[2]);
+	//fhandle[9] = mesh.add_face(face_vhandles);
 
 	//mesh.delete_face(fhandle[7]);
 
 	printf("face num:%d\n", mesh.n_faces());
 	printf("vertex num:%d\n", mesh.n_vertices());
 
-	///*for (MyMesh::FaceIter  it = mesh.faces_begin(); it != mesh.faces_end(); ++it) {
-	//	for (MyMesh::FaceVertexIter it_f = mesh.fv_begin(*it); it_f != mesh.fv_end(*it); it_f++) {
-	//		cout << it_f->idx() << " " << mesh.point(*it_f) << endl;
-	//	}
-	//	cout << "~~~~~~~~~~~~" << endl;
-	//}*/
-
-	//MyMesh::VertexHandle vhandle_insert = mesh.add_vertex(MyMesh::Point(3, 7, 0)); //不能在内部进行
-	//face_vhandles.clear();
-	//face_vhandles.push_back(vhandle[5]);
-	//face_vhandles.push_back(vhandle_insert);
-	//face_vhandles.push_back(vhandle[4]);
-	//mesh.add_face(face_vhandles);
-
-	//face_vhandles.clear();
-	//face_vhandles.push_back(vhandle[4]);
-	//face_vhandles.push_back(vhandle_insert);
-	//face_vhandles.push_back(vhandle[8]);
-	//mesh.add_face(face_vhandles);
-
-	//face_vhandles.clear();
-	//face_vhandles.push_back(vhandle[8]);
-	//face_vhandles.push_back(vhandle_insert);
-	//face_vhandles.push_back(vhandle[5]);
-	//
-	//mesh.add_face(face_vhandles);
-
-	//printf("face num:%d\n", mesh.n_faces());
-
-	//for (MyMesh::HalfedgeIter it = mesh.halfedges_begin(); it != mesh.halfedges_end(); ++it) {
-	//	if (mesh.to_vertex_handle(*it) == vhandle[3] &&
-	//		mesh.from_vertex_handle(*it) == vhandle[2])
-	//	{
-	//		// Collapse edge
-	//		mesh.collapse(*it);
-	//		break;
-	//	}
-	//}
-	//printf("vertex num:%d\n", mesh.n_vertices());
-
 	mesh.request_vertex_status();
 	mesh.request_edge_status();
 	mesh.request_face_status();
 
-	for (MyMesh::VertexIter v_it = mesh.vertices_begin(); v_it != mesh.vertices_end(); ++v_it)
-	{
-		cout << "All vertex :" << v_it->idx() << " " << mesh.point(*v_it) << endl;
-		if (vhandle[5] == mesh.vertex_handle(v_it->idx())) {
-			cout << "vhandle[5] :" << v_it->idx() << endl;
-		}
-		if (vhandle[9] == mesh.vertex_handle(v_it->idx())) {
-			cout << "vhandle[9] :" << v_it->idx() << endl;
-		}
-	}
-
-	for (MyMesh::EdgeIter e_it = mesh.edges_begin(); e_it != mesh.edges_end(); e_it++) {
-
-		
-		//cout << "All edge :" << e_it->idx() << endl;
-	}
-	for (MyMesh::VertexEdgeIter ve_it = mesh.ve_begin(vhandle[5]); ve_it.is_valid(); ve_it++)
-	{
-		MyMesh::HalfedgeHandle h = mesh.halfedge_handle(mesh.edge_handle(ve_it->idx()), 0);
-		MyMesh::VertexHandle a[2];
-		a[0] = mesh.to_vertex_handle(h);
-		a[1] = mesh.from_vertex_handle(h);
-		cout <<"1 : "<<mesh.point(a[0]) << endl;
-		cout <<"2 : "<<mesh.point(a[1]) << endl;
-		cout << "~~~~~~~~~~~~~~~~~~~~~" << endl;
-	//	cout << "Vertex edge 5 :" << ve_it->idx() << endl;
-	}
-	for (MyMesh::VertexEdgeIter ve_it = mesh.ve_begin(vhandle[4]); ve_it.is_valid(); ve_it++)
-	{
-		cout << "Vertex edge 4 :" << ve_it->idx() << endl;
-	}
-
-	//OpenMesh::IO::write_mesh(mesh, "fps1.stl", 0);
-	for (MyMesh::HalfedgeIter it = mesh.halfedges_begin(); it != mesh.halfedges_end(); ++it) {
-		if (mesh.to_vertex_handle(*it) == vhandle[4] &&
-			mesh.from_vertex_handle(*it) == vhandle[5])
-		{
-			// Collapse edge
-			mesh.collapse(*it); //已经标记了进行删除，所以直接进行garbage_collection();
-			if (!mesh.is_collapse_ok(*it)) {
-				cout << "YES" << endl;
-			}
-			cout << "Collapse over!" << endl;
-								//if (!mesh.is_collapse_ok(*it)) {// 
-								//	/*mesh.delete_face(fhandle[5]);
-								//	mesh.delete_face()*/
-								//	//mesh.delete_vertex(vhandle[5]);
-								//	cout << "YES" << endl;
-								//}
-			break;
+	for (MyMesh::VertexIHalfedgeIter vi_iter = mesh.vih_begin(vhandle[1]); vi_iter.is_valid();vi_iter++) {
+		MyMesh::HalfedgeHandle hf = mesh.halfedge_handle(vi_iter->idx());
+		if (vhandle[2] == mesh.from_vertex_handle(hf)) {
+			MyMesh::HalfedgeHandle nf = mesh.opposite_halfedge_handle(mesh.next_halfedge_handle(hf));
+			mesh.collapse(hf);
+			mesh.collapse(nf);
+			
 		}
 	}
-	for (MyMesh::EdgeIter e_it = mesh.edges_begin(); e_it != mesh.edges_end(); e_it++) {
-		cout << "All edge :" << e_it->idx() << endl;
-	}
-
-	for (MyMesh::VertexVertexIter vv_it = mesh.vv_iter(vhandle[4]); vv_it.is_valid(); ++vv_it)
-	{
-		cout << mesh.point(*vv_it) << " " << vv_it->idx() << endl;
-	}
-	printf("vertex num:%d\n", mesh.n_vertices());
-	printf("face num:%d\n", mesh.n_faces());
-
-
-	for (MyMesh::FaceIter f_it = mesh.faces_begin(); f_it != mesh.faces_end(); ++f_it) {
-		std::cout << "The face's valence is " << mesh.valence(*f_it) << std::endl;
-		//if (!mesh.valence(*f_it)) {
-		//	mesh.delete_face(*f_it);
-		//}
-		//else {
-		for (MyMesh::FaceVertexIter vf_it = mesh.fv_iter(*f_it); vf_it.is_valid(); ++vf_it) {
-			cout << mesh.point(*vf_it) << " " << vf_it->idx() << " || ";
-		}
-		cout << endl;
-		//}
-	}
-	cout << "collapsed" << endl;
-	for (MyMesh::VertexIter v_it = mesh.vertices_begin(); v_it != mesh.vertices_end(); ++v_it)
-	{
-		cout << "All vertex :" << v_it->idx() << " " << mesh.point(*v_it) << endl;
-
-		if (vhandle[5] == mesh.vertex_handle(v_it->idx())) {
-			cout << "vhandle[5] :" << v_it->idx() << endl;
-		}
-		if (vhandle[9] == mesh.vertex_handle(v_it->idx())) {
-			cout << "vhandle[9] :" << v_it->idx() << endl;
-		}
-	}
-	for (MyMesh::EdgeIter e_it = mesh.edges_begin(); e_it != mesh.edges_end(); e_it++) {
-		cout << "All edge :" << e_it->idx() << endl;
-	}
-
-	for (MyMesh::VertexEdgeIter ve_it = mesh.ve_begin(vhandle[5]); ve_it.is_valid(); ve_it++)
-	{
-		cout << "Vertex edge 5 :" << ve_it->idx() << endl;
-	}
-	for (MyMesh::VertexEdgeIter ve_it = mesh.ve_begin(vhandle[4]); ve_it.is_valid(); ve_it++)
-	{
-		cout << "Vertex edge 4 :" << ve_it->idx() << endl;
-	}
-
 	mesh.garbage_collection();
-	cout << "garbage_collection" << endl;
+	OpenMesh::IO::write_mesh(mesh, "fps3.stl", 0);
 
-	for (MyMesh::VertexEdgeIter ve_it = mesh.ve_begin(vhandle[5]); ve_it.is_valid(); ve_it++)
-	{
-		cout << "Vertex edge 5 :" << ve_it->idx() << endl;
-	}
-
-	for (MyMesh::VertexEdgeIter ve_it = mesh.ve_begin(vhandle[4]); ve_it.is_valid(); ve_it++)
-	{
-		cout << "Vertex edge 4 :" << ve_it->idx() << endl;
-	}
-
-	for (MyMesh::EdgeIter e_it = mesh.edges_begin(); e_it != mesh.edges_end(); e_it++) {
-		cout << "All edge :" << e_it->idx() << endl;
-	}
-	for (MyMesh::VertexIter v_it = mesh.vertices_begin(); v_it != mesh.vertices_end(); ++v_it)
-	{
-		cout << "All vertex :" << v_it->idx() << " " << mesh.point(*v_it) << endl;
-
-		if (vhandle[5] == mesh.vertex_handle(v_it->idx())) {
-			cout << "vhandle[5] :" << v_it->idx() << endl;
-		}
-		if (vhandle[9] == mesh.vertex_handle(v_it->idx())) {
-			cout << "vhandle[9] :" << v_it->idx() << endl;
-		}
-	}
-
-	printf("face num:%d\n", mesh.n_faces());
-	OpenMesh::IO::write_mesh(mesh, "fps.stl", 0);
-	//mesh.set_point(vhandle[4], MyMesh::Point(3, 3, 0));
-	//cout << mesh.point(vhandle[4]) << endl;
 }
