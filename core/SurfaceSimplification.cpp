@@ -44,6 +44,41 @@ void go_test2(string inputfilename, float dest) {
 	cout << "简化完毕，正在生成简化网格文件..." << endl;
 	ims.Writefile(outputfilename.c_str(), 1);
 }
+
+void outputfile(string fname,MyMesh &mesh) {
+	FILE *file;
+	file=fopen(fname.c_str(), "w+");
+	//float op[3] = { 12.326548,2.659123,152.165464 };
+	//fprintf(file, "3 %.4f %.4f %.4f\n", op[0], op[1], op[2]);
+	fprintf(file, "ply\n");
+	fprintf(file, "format ascii 1.0\n");
+	fprintf(file, "element vertex %d\n",mesh.n_vertices());
+	fprintf(file, "property float x\n");
+	fprintf(file, "property float y\n");
+	fprintf(file, "property float z\n");
+	fprintf(file, "property face %d\n",mesh.n_faces());
+	fprintf(file, "property list uchar int vertex_indices\n");
+	fprintf(file, "end_header\n");
+
+	MyMesh::Point pp;
+	for (MyMesh::VertexIter vit = mesh.vertices_begin(); vit != mesh.vertices_end(); vit++) {
+		pp = mesh.point(mesh.vertex_handle(vit->idx()));
+		fprintf(file, "%.6f %.6f %.6f\n", pp[0],pp[1],pp[2]);
+	}
+	int ii = 0;
+	int cc[3];
+	for (MyMesh::FaceIter it = mesh.faces_begin(); it != mesh.faces_end(); it++) {
+		ii = 0;
+		for (MyMesh::FaceVertexCCWIter fv_iter = mesh.fv_ccwbegin(mesh.face_handle(it->idx())); fv_iter.is_valid(); fv_iter++) {
+			cc[ii] = fv_iter->idx();
+			ii++;
+		}
+		fprintf(file, "3 %d %d %d\n", cc[0],cc[1],cc[2]);
+	}
+
+	fclose(file);
+}
+
 int main(int argc, char** argv)
 {
 	/*MyMesh mesh2;
@@ -65,22 +100,45 @@ int main(int argc, char** argv)
 	//ims.Writefile(outputfilename.c_str(),1);
 	//system("pause");
 
-	//MyTriOpenMesh  ims;
-	//
-	//float dest = 0.8; //缩小原来点的多少 dest*100%
-	//string inputfilename = "Total-denoised-Tri-simplify-80.ply";
-	//string outputfilename = "Total-denoised-Tri-simplify-802.ply";
-	///*string inputfilename = "DIT-2.stl";
-	//string outputfilename = "DIT-2-Tri-simplify-80.stl";*/
-	//if (ims.Readfile(inputfilename.c_str())) {
-	//	return 0;
-	//}
-	//ims.MeshSimplification(dest);
-	//ims.Writefile(outputfilename.c_str(),0);
-	//system("pause");
+	MyTriOpenMesh  ims;
+	
+	float dest = 0.8; //缩小原来点的多少 dest*100%
+	string inputfilename = "Total-07-28.ply";
+	string outputfilename = "Total-07-28-Tri-simplify-1.ply";
 
-	if (argc<4) {
+	//string ls = "tri-s-p.ply";
+
+	/*string inputfilename = "DIT-2.stl";
+	string outputfilename = "DIT-2-Tri-simplify-80.stl";*/
+	if (ims.Readfile(inputfilename.c_str())) {
+		return 0;
+	}
+	ims.MeshSimplification(dest);
+	ims.Writefile(outputfilename.c_str(),0);
+
+	//outputfile(ls, ims.mesh);
+	
+	system("pause");
+
+	/*char *st;
+	char giv[] = "gwegrth.ply";
+	st = giv;
+	int i = 0;
+	while (*(st + i) != '.') {
+		i++;
+	}
+	string  cct;
+	for (int j = 0; j <= i; j++) {
+		cct.push_back(*(st + j));
+	}
+	cct += "stl";
+	cout << i << endl;
+	cout << cct<< endl;*/
+
+
+	/*if (argc<4) {
 		cout << "您输入的参数不足" << endl;
+		return -1;
 	}
 	cout << argv[1] << endl;
 	cout << argv[2] << endl;
@@ -91,8 +149,28 @@ int main(int argc, char** argv)
 	ims.Readfile(argv[1]);
 	cout << "读取文件完毕，开始网格简化..." << endl;
 	ims.MeshSimplification(dest);
-	cout << "简化完毕，正在生成简化网格文件..." << endl;
-	ims.Writefile(argv[2]);
+	cout << "简化完毕，正在生成简化网格文件..." << endl;*/
+	
+
+	/*char *st;
+	st = argv[2];
+
+	int i = 0;
+	while (*(st + i) != '.') {
+		i++;
+	}
+	cout << "ith i:"<< i << endl;
+	string  cct;
+	for (int j = 0; j <= i; j++) {
+		cct.push_back(*(st + j));
+	}
+	cct += "stl";
+	
+	cout << cct << endl;*/
+
+	//ims.Writefile(cct.c_str(),1);
+	ims.Writefile(argv[2], 1);
+	cout << "已生成stl网格文件!" << endl;
 
 	/*while (1) {
 		cout << "请输入需要简化二进制文件路径（*.obj *.stl *.off *.ply）：" << endl;
@@ -120,35 +198,49 @@ void main_test3() {
 
 	vhandle[3] = mesh.add_vertex(MyMesh::Point(2, 4, 0));
 
+	vhandle[4] = mesh.add_vertex(MyMesh::Point(7, 8, 0));
+	vhandle[5] = mesh.add_vertex(MyMesh::Point(9, 9, 0));
+	vhandle[6] = mesh.add_vertex(MyMesh::Point(6, 6, 0));
+
 	vector<MyMesh::VertexHandle> face_vhandles;
 	MyMesh::FaceHandle   fhandle[10];
 
 	face_vhandles.push_back(vhandle[0]);
 	face_vhandles.push_back(vhandle[2]);
-	face_vhandles.push_back(vhandle[1]);
+	face_vhandles.push_back(vhandle[3]);
 	fhandle[0] = mesh.add_face(face_vhandles);
 
 	face_vhandles.clear();
 	face_vhandles.push_back(vhandle[2]);
-	face_vhandles.push_back(vhandle[0]);
-	face_vhandles.push_back(vhandle[3]);
-	fhandle[1] = mesh.add_face(face_vhandles);
-
-	face_vhandles.clear();
-	face_vhandles.push_back(vhandle[2]);
 	face_vhandles.push_back(vhandle[3]);
 	face_vhandles.push_back(vhandle[1]);
 	fhandle[1] = mesh.add_face(face_vhandles);
 
+	face_vhandles.clear();
+	face_vhandles.push_back(vhandle[2]);
+	face_vhandles.push_back(vhandle[1]);
+	face_vhandles.push_back(vhandle[3]);
+	fhandle[2] = mesh.add_face(face_vhandles);
+
+	face_vhandles.clear();
+	face_vhandles.push_back(vhandle[4]);
+	face_vhandles.push_back(vhandle[5]);
+	face_vhandles.push_back(vhandle[6]);
+	fhandle[3] = mesh.add_face(face_vhandles);
+
 	printf("face num:%d\n", mesh.n_faces());
 	printf("vertex num:%d\n", mesh.n_vertices());
+
+	//mesh.delete_face(fhandle[3]);
 	
-	for (MyMesh::VertexOHalfedgeIter it = mesh.voh_begin(vhandle[0]); it.is_valid(); it++) {
+	
+	/*for (MyMesh::VertexOHalfedgeIter it = mesh.voh_begin(vhandle[0]); it.is_valid(); it++) {
 		MyMesh::HalfedgeHandle hf = mesh.halfedge_handle(it->idx());
 		if (mesh.to_vertex_handle(hf) == vhandle[3]) {
 			mesh.collapse(hf);
 		}
-	}
+	}*/
+
 	OpenMesh::IO::write_mesh(mesh, "ppst2.obj");
 }
 

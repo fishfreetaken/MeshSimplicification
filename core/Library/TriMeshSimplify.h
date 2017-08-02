@@ -167,6 +167,7 @@ public:
 	*/
 
 	void IterartoAll();
+	void IterartoAllc();
 	void IterartoAll2();
 
 private:
