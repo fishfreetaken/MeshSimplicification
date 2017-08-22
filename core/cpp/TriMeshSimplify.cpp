@@ -583,15 +583,42 @@ int MyTriOpenMesh::Readfile(const char * argg)
 {
 	// read mesh from stdin
 	cout << "正在读取网格文件..." << endl;
+	mesh.request_vertex_normals();
+
+	if (!mesh.has_vertex_normals())
+	{
+		cout << "Normals  not available!" << endl;
+		std::cerr << "ERROR: Standard vertex property 'Normals' not available!\n";
+	}
+
 	if (!OpenMesh::IO::read_mesh(mesh, argg, opt))
 	{
 		std::cerr << "Error: Cannot read mesh from " << std::endl;
 		return 1;
 	}
 
+	mesh.request_face_normals();
+
+	// let the mesh update the normals
+	mesh.update_normals();
+
+	//if (!opt.check(OpenMesh::IO::Options::VertexNormal))
+	//{
+	//	cout << "Normals  not available````````!" << endl;
+	//	// we need face normals to update the vertex normals
+	//	mesh.request_face_normals();
+
+	//	// let the mesh update the normals
+	//	mesh.update_normals();
+
+	//	// dispose the face normals, as we don't need them anymore
+	//	mesh.release_face_normals();
+	//}
+
 	mesh.request_vertex_status();
 	mesh.request_edge_status();
 	mesh.request_face_status();
+
 	cout << "Read File Over!" << endl;
 	return 0;
 }
@@ -672,16 +699,16 @@ void MyTriOpenMesh::FillTriMeshMap()
 			m_TriMesh_Map[i]->DebugInfo();
 		}*/
 	}
-	MyMesh::Point pp;
-	for (MyMesh::VertexIter vi = mesh.vertices_begin(); vi != mesh.vertices_end(); vi++) {
-		pp = mesh.point(*vi);
-		/*if ((pp[0] == NAN)||(pp[1]==NAN)||(pp[2]==NAN)) {
-			cout << "NAN : " << vi->idx() << endl;
-		}*/
-		if (vi->idx() == 817706) {
-			cout << pp << endl;
-		}
-	}
+	//MyMesh::Point pp;
+	//for (MyMesh::VertexIter vi = mesh.vertices_begin(); vi != mesh.vertices_end(); vi++) {
+	//	pp = mesh.point(*vi);
+	//	/*if ((pp[0] == NAN)||(pp[1]==NAN)||(pp[2]==NAN)) {
+	//		cout << "NAN : " << vi->idx() << endl;
+	//	}*/
+	//	if (vi->idx() == 817706) {
+	//		cout << pp << endl;
+	//	}
+	//}
 }
 
 int MyTriOpenMesh::CollapseIterator()

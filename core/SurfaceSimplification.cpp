@@ -2,6 +2,8 @@
 //
 
 #include "stdafx.h"
+//#define EIGEN_USE_MKL_ALL   //这个是多线程优化配置
+//#define EIGEN_VECTORIZE_SSE4_2  //加了多线程优化，反而变慢了
 
 #include "IncludeHeader.h"
 
@@ -9,134 +11,65 @@
 
 #include "TriMeshSimplify.h"
 
+#include <time.h>
+
+#include "ModelStraighten.h"
+
+#include "BilateralFilter.h"
+
+#include "CgalSimplification.h"
+
 void main_test();
 void main_test2();
 void main_test3();
 
-void go_test(string inputfilename,float dest) {
-	MyOpenMesh  ims;
-	//float dest = 0.6; //缩小原来点的多少 dest*100%
-
-	int ith = inputfilename.find('.');
-	string  outputfilename = inputfilename.substr(0,ith)+"-Simplify"+ inputfilename.substr(ith);
-	cout <<"简化输出文件 ："<<outputfilename << endl;
-	cout << "目标简化量：" <<dest<< endl;
-	//string outputfilename = "DIT2-4-simplify-60.ply";
-	ims.Readfile(inputfilename.c_str());
-	cout << "读取文件完毕，开始网格简化..." << endl;
-	ims.MeshSimplification(dest);
-	cout << "简化完毕，正在生成简化网格文件..." << endl;
-	ims.Writefile(outputfilename.c_str(), 1);
-}
-
-void go_test2(string inputfilename, float dest) {
-	MyTriOpenMesh  ims;
-	//float dest = 0.6; //缩小原来点的多少 dest*100%
-
-	int ith = inputfilename.find('.');
-	string  outputfilename = inputfilename.substr(0, ith) + "-Tri-Simplify" + inputfilename.substr(ith);
-	cout << "简化输出文件 ：" << outputfilename << endl;
-	cout << "目标简化量：" << dest << endl;
-	//string outputfilename = "DIT2-4-simplify-60.ply";
-	ims.Readfile(inputfilename.c_str());
-	cout << "读取文件完毕，开始网格简化..." << endl;
-	ims.MeshSimplification(dest);
-	cout << "简化完毕，正在生成简化网格文件..." << endl;
-	ims.Writefile(outputfilename.c_str(), 1);
-}
-
-void outputfile(string fname,MyMesh &mesh) {
-	FILE *file;
-	file=fopen(fname.c_str(), "w+");
-	//float op[3] = { 12.326548,2.659123,152.165464 };
-	//fprintf(file, "3 %.4f %.4f %.4f\n", op[0], op[1], op[2]);
-	fprintf(file, "ply\n");
-	fprintf(file, "format ascii 1.0\n");
-	fprintf(file, "element vertex %d\n",mesh.n_vertices());
-	fprintf(file, "property float x\n");
-	fprintf(file, "property float y\n");
-	fprintf(file, "property float z\n");
-	fprintf(file, "property face %d\n",mesh.n_faces());
-	fprintf(file, "property list uchar int vertex_indices\n");
-	fprintf(file, "end_header\n");
-
-	MyMesh::Point pp;
-	for (MyMesh::VertexIter vit = mesh.vertices_begin(); vit != mesh.vertices_end(); vit++) {
-		pp = mesh.point(mesh.vertex_handle(vit->idx()));
-		fprintf(file, "%.6f %.6f %.6f\n", pp[0],pp[1],pp[2]);
-	}
-	int ii = 0;
-	int cc[3];
-	for (MyMesh::FaceIter it = mesh.faces_begin(); it != mesh.faces_end(); it++) {
-		ii = 0;
-		for (MyMesh::FaceVertexCCWIter fv_iter = mesh.fv_ccwbegin(mesh.face_handle(it->idx())); fv_iter.is_valid(); fv_iter++) {
-			cc[ii] = fv_iter->idx();
-			ii++;
-		}
-		fprintf(file, "3 %d %d %d\n", cc[0],cc[1],cc[2]);
-	}
-
-	fclose(file);
-}
-
 int main(int argc, char** argv)
 {
-	/*MyMesh mesh2;
-	OpenMesh::IO::Options opt;
-	OpenMesh::IO::read_mesh(mesh2, "fps2.stl", opt);
-	cout << mesh2.n_faces() << endl;*/
 
 	//main_test(); //测试
 	//main_test2();
-	//main_test3();
+	//main_test3()
 
-	//MyOpenMesh  ims;
-	//
-	//float dest = 0.6; //缩小原来点的多少 dest*100%
-	//string inputfilename = "DIT2-4.ply";
-	//string outputfilename = "DIT2-4-simplify-60.ply";
-	//ims.Readfile(inputfilename.c_str());
+	//double start = clock();
+
+	//MyTriOpenMesh  ims;
+
+	//float dest = 0.8; //缩小原来点的多少 dest*100%
+	//string inputfilename = "Total5.ply";
+	////string outputfilename = "DIT3-3-Tri-simplify-80.ply";
+	////string outputfilename = "TSI692S-6-BH-tf-aff.stl";
+	//string outputfilename = "TSI692S-6-BH-mesh-filter.stl";
+
+	////ModelStraighten ams(ims.mesh);
+	////ams.EigenQuaternSpinTest();
+
+	//if (ims.Readfile(inputfilename.c_str())) {
+	//	return 0;
+	//}
+
+	//ams.StraightenBottomNormalSingle();
+
+	/*BilateralFilter lms(ims.mesh);
+	
+	lms.updateBilateralFilter();
+
+	ims.Writefile(outputfilename.c_str(), 1);
+
+	system("pause");*/
+
 	//ims.MeshSimplification(dest);
-	//ims.Writefile(outputfilename.c_str(),1);
-	//system("pause");
 
-	MyTriOpenMesh  ims;
-	
-	float dest = 0.8; //缩小原来点的多少 dest*100%
-	string inputfilename = "Total-07-28.ply";
-	string outputfilename = "Total-07-28-Tri-simplify-1.ply";
+	/*CgalSimplification rms(ims.mesh);
+	rms.MeshSimplication(dest);
 
-	//string ls = "tri-s-p.ply";
+	ims.Writefile(outputfilename.c_str(),0);*/
 
-	/*string inputfilename = "DIT-2.stl";
-	string outputfilename = "DIT-2-Tri-simplify-80.stl";*/
-	if (ims.Readfile(inputfilename.c_str())) {
-		return 0;
-	}
-	ims.MeshSimplification(dest);
-	ims.Writefile(outputfilename.c_str(),0);
+	/*double endd = clock();
+	double thisTime = (double)(endd - start) / CLOCKS_PER_SEC;
 
-	//outputfile(ls, ims.mesh);
-	
-	system("pause");
+	cout << thisTime << endl;*/
 
-	/*char *st;
-	char giv[] = "gwegrth.ply";
-	st = giv;
-	int i = 0;
-	while (*(st + i) != '.') {
-		i++;
-	}
-	string  cct;
-	for (int j = 0; j <= i; j++) {
-		cct.push_back(*(st + j));
-	}
-	cct += "stl";
-	cout << i << endl;
-	cout << cct<< endl;*/
-
-
-	/*if (argc<4) {
+	if (argc<4) {
 		cout << "您输入的参数不足" << endl;
 		return -1;
 	}
@@ -147,30 +80,45 @@ int main(int argc, char** argv)
 	dest = atof(argv[3]);
 	MyTriOpenMesh ims;
 	ims.Readfile(argv[1]);
+
+	ModelStraighten ams(ims.mesh);
+	//ams.MainTest();
+	ams.StraightenBottomNormalSingle();
+
+	BilateralFilter lms(ims.mesh);
+
+	lms.updateBilateralFilter();
+
 	cout << "读取文件完毕，开始网格简化..." << endl;
-	ims.MeshSimplification(dest);
-	cout << "简化完毕，正在生成简化网格文件..." << endl;*/
-	
 
-	/*char *st;
-	st = argv[2];
+	CgalSimplification rms(ims.mesh);
+	rms.MeshSimplication(dest);
 
-	int i = 0;
-	while (*(st + i) != '.') {
-		i++;
-	}
-	cout << "ith i:"<< i << endl;
-	string  cct;
-	for (int j = 0; j <= i; j++) {
-		cct.push_back(*(st + j));
-	}
-	cct += "stl";
-	
-	cout << cct << endl;*/
+	//ims.MeshSimplification(dest);
+	cout << "简化完毕，正在生成简化网格文件..." << endl;
+	ims.Writefile("D://data//Total-Simply.stl", 1);
 
-	//ims.Writefile(cct.c_str(),1);
-	ims.Writefile(argv[2], 1);
-	cout << "已生成stl网格文件!" << endl;
+	///*char *st;
+	//st = argv[2];
+
+	//int i = 0;
+	//while (*(st + i) != '.') {
+	//	i++;
+	//}
+	//cout << "ith i:"<< i << endl;
+	//string  cct;
+	//for (int j = 0; j <= i; j++) {
+	//	cct.push_back(*(st + j));
+	//}
+	//cct += "stl";*/
+	//
+	////cout << cct << endl;
+	//
+	////ims.Writefile(cct.c_str(),1);
+	//ims.Writefile("D://data//Total-Simply.stl",1);
+
+	////ims.Writefile(argv[2], 1);
+	//cout << "已生成stl网格文件!" << endl;
 
 	/*while (1) {
 		cout << "请输入需要简化二进制文件路径（*.obj *.stl *.off *.ply）：" << endl;
